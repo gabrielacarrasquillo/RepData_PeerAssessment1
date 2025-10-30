@@ -1,0 +1,209 @@
+---
+title: "Course Project 1"
+author: "Gabriela Carrasquillo Piñeiro"
+date: "2025-10-27"
+output: html_document
+---
+
+```{r setup, include=FALSE }
+knitr::opts_chunk$set(
+  echo = TRUE,
+  fig.width = 6,   
+  fig.height = 4,  
+  fig.align = "center"
+  )
+```
+
+As part of Project 1, the steps of an unknown person were analyzed. Through a personal activity monitoring device, the amount of steps were counted throughout intervals of 5 minutos each day. These intervals start in 0 everyday for two months, October 1st through December 1st for a total of 17,568 observations. This report include the libraries and code utilized to read, evaluate, graph and analyze the data as needed for this project.
+
+
+The following libraries were used:
+```{r, message=FALSE, warning=FALSE, echo=TRUE, results='hide'}
+library(tidyverse)
+library(rio)
+library (dplyr)
+
+```
+
+
+Import of data document
+```{r, echo = TRUE}
+steps <- rio::import("activity.csv")
+
+glimpse(steps)
+```
+
+
+### What is the mean total number of steps taken per day?
+
+A new dataset was created to agregate the daily steps
+```{r, echo = TRUE}
+daily_steps <- steps %>%
+  group_by(date) %>%   
+  summarise(total_steps = sum(steps, na.rm = TRUE), .groups = "drop")
+```
+
+
+Mean and median were calculated for the total daily steps
+```{r}
+stats <- daily_steps %>%
+  summarise(
+    mean   = mean(total_steps, na.rm = TRUE),
+    median = median(total_steps, na.rm = TRUE)
+  )
+
+stats
+
+```
+
+
+```{r, echo = TRUE}
+ggplot(daily_steps, aes(x = date, y = total_steps)) +
+  geom_col(fill = "red") +
+  labs(
+    title = "Total steps per day",
+    x = "Date",
+    y = "Total number of steps"
+  )
+
+
+```
+
+
+
+### What is the average daily activity pattern?
+
+```{r, echo = TRUE}
+
+interval_mean <- steps %>%
+  group_by(interval) %>%
+  summarise(mean_steps = mean(steps, na.rm = TRUE))
+
+```
+
+
+```{r, echo = TRUE}
+ggplot(interval_mean, aes(x = interval, 
+                  y = mean_steps)) +
+  geom_line(color = "red") +
+  labs(
+    title = "Average steps per day",
+    x = "Time intervals",
+    y = "Mean steps by interval"
+  )
+
+```
+
+### About missing values
+Amount of missing values in "steps" variable
+```{r}
+
+steps |>
+  filter(is.na(steps)) |>
+  nrow()
+```
+
+Create new variable within main *dataframe* "steps" with the calculated mean by time interval
+```{r, echo = TRUE}
+steps2 <- steps |>
+  group_by(interval) |>
+  mutate(mean_steps = mean(steps, na.rm = TRUE)) |>
+  ungroup()
+```
+
+
+Substitute missing values in "steps" variable with the corresponding mean value
+```{r, echo = TRUE}
+steps2 <- steps2 |>
+  mutate(steps = if_else(is.na(steps), mean_steps, steps))
+```
+
+
+Sum the daily steps using the new dataset "steps2", and graph the total steps for each day
+```{r, echo = TRUE}
+daily_steps2 <- steps2 %>%
+  group_by(date) %>%   
+  summarise(total_steps = sum(steps, na.rm = TRUE), .groups = "drop")
+
+ggplot(daily_steps2, aes(x = date, y = total_steps)) +
+  geom_col(fill = "red") +
+  labs(
+    title = "Total steps per day",
+    x = "Date",
+    y = "Total number of steps"
+  )
+```
+
+Mean and median from the new dataset "steps2"
+```{r}
+stats2 <- daily_steps2 %>%
+  summarise(
+    mean_total   = mean(total_steps, na.rm = TRUE),
+    median_total = median(total_steps, na.rm = TRUE)
+  )
+
+stats2
+```
+Since the missing values were filled using the corresponding mean value observed in each day of the two month sample, the overall daily mean and median changed. In the original dataframe "steps", a mean of 9,354.23 steps and median of 10,395 steps was observed. In the edited dataframe "steps2", both mean and median were 10,766.19 steps. This means that missing values in the “step” variable created a slight bias to the right while the median almost didn’t change. This highlights the importance of evaluating measures of central tendency to understand what changes should be corrected in the original data as part of the data analysis.
+
+### Differences in activity patterns between weekdays and weekends?
+
+Assign weekdays corresponding each date
+```{r, echo = TRUE}
+
+steps2 <- 
+  steps2 |>
+  mutate(day_name = weekdays(date))
+
+steps2
+```
+
+Group weekdays by "weekday" and "weekend"
+```{r, echo = TRUE}
+
+steps2 <- steps2 |>
+  mutate(day_category = case_when(
+    day_name %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday") ~ "Weekday",
+    day_name %in% c("Saturday", "Sunday") ~ "Weekend",
+    .default = "Unknown"
+  ))
+
+```
+
+
+Calculate a new mean for weedays and weekends
+```{r}
+ 
+steps2 <- steps2 %>%
+  group_by(interval, day_category) %>%
+  summarise(mean_steps = mean(steps, na.rm = TRUE)) %>%
+  ungroup()
+
+
+```
+
+
+Graph mean steps by interval and day category of weekend and weekday
+```{r, echo = TRUE}
+ggplot(steps2, aes(x = interval, 
+                  y = mean_steps,
+                  group = day_category,
+                  colour = factor(day_category, labels = c("Weekday", "Weekend"))
+                  )) +
+  geom_line() +
+  labs(
+    title = "Average steps per day",
+    x = "Time intervals",
+    y = "Mean steps by interval",
+    colour = "Week day"
+  )
+
+
+```
+It is evident that there's a difference according the category of the day. More activity was observed through the day on weekends, while steps go a little higher during weekdays only early in the morning and late in the afternoon. It is suggested to convert x-axis into hours of the day for more specific interpretation of these times. 
+
+Data Source: Personal activity monitoring data provided by course
+
+
+
+
